@@ -23,10 +23,10 @@ import gigaware.sms
 def reservations():
     user = User.query.get(current_user.get_id())
 
-    reservations_as_host = Reservation.query .filter(
-        JobTask.host_id == current_user.get_id() and len(
-            JobTask.reservations) > 0) .join(JobTask) .filter(
-        Reservation.job_task_id == JobTask.id) .all()
+    reservations_as_host = Reservation.query.filter(
+        JobTask.host_id == current_user.get_id() and
+        len(JobTask.reservations) > 0
+    ).join(JobTask).filter(Reservation.job_task_id == JobTask.id).all()
 
     reservations_as_guest = user.reservations
 
