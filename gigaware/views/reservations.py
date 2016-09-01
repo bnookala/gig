@@ -16,6 +16,7 @@ from gigaware.views.view_helpers import view_with_params
 from gigaware.views.view_helpers import redirect_to
 from gigaware.views.view_helpers import twiml
 
+import gigaware.sms
 
 @app.route('/reservations', methods=["GET"])
 @login_required
@@ -45,13 +46,13 @@ def new_reservation(property_id):
     if request.method == 'POST':
         if form.validate_on_submit():
             guest = User.query.get(current_user.get_id())
-
             job_task = JobTask.query.get(form.property_id.data)
+
             reservation = Reservation(form.message.data, job_task, guest)
             db.session.add(reservation)
             db.session.commit()
 
-            reservation.notify_host()
+            gigaware.sms.sms_client.notify_host(reservation)
 
             return redirect_to('listings')
 
@@ -67,18 +68,18 @@ def confirm_reservation():
     sms_response_text = "Sorry, it looks like you don't have any reservations to respond to."
 
     user = User.query.filter(User.phone_number == form.From.data).first()
-    reservation = Reservation \
-        .query \
-        .filter(Reservation.status == 'pending'
-                and Reservation.job_task.host.id == User.id) \
-        .first()
+
+    reservation = Reservation.query.filter(
+        Reservation.status == 'pending' and
+        Reservation.job_task.host.id == User.id
+    ).first()
 
     if reservation is None:
         return
- 
+
     if 'yes' in form.Body.data or 'accept' in form.Body.data:
         reservation.confirm()
-        reservation.buy_number(user.area_code)
+        gigaware.sms.sms_client.buy_number(user.area_code, reservation)
     else:
         reservation.reject()
 
@@ -86,7 +87,8 @@ def confirm_reservation():
 
     sms_response_text = "You have successfully {0} the reservation".format(
         reservation.status)
-    reservation.notify_guest()
+
+    gigaware.sms.sms_client.notify_guest(reservation)
 
     return twiml(_respond_message(sms_response_text))
 
